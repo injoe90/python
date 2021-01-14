@@ -1,4 +1,4 @@
-# 객체를 활용한 데이터베이스
+# 객체를 활용한 데이터베이스 (1)
 
 > 1. SQLite
 > 2. Value
@@ -94,7 +94,7 @@ class SqliteDb:
 
  * App과 데이터베이스를 연결할 동작을 작성한다.
    	* init을 이용하여 데이터베이스 이름을 지정하는 함수를 만든다.
-   	* 데이터베이스를 접속하는 함수를 만들 때, 'con'과 'cursor'를 전역 변수로 설정하지 않고 사전으로 출력한다.
+      	* 데이터베이스를 접속하는 함수를 만들 때, 'con'과 'cursor'를 전역 변수로 설정하지 않고 사전으로 출력한다.
 
 ```python
 # 주문번호 구하는 함수
@@ -278,4 +278,194 @@ while True:
 
 print('End ....')
 ```
+
+
+
+# 객체를 활용한 데이터베이스 (2)
+
+> 1. SQLite
+> 2. Value
+
+
+
+```python
+import sqlite3;
+
+class Sql:
+    makeusertb = """
+    CREATE TABLE IF NOT EXISTS usertb(
+                    id CHAR(10) PRIMARY KEY,
+                    pwd  CHAR(10),
+                    name CHAR(10),
+                    age  NUMBER(3)
+    )""";
+    makeitemtb = """CREATE TABLE IF NOT EXISTS itemtb(
+        id CHAR(10) PRIMARY KEY,
+        name CHAR(10),
+        price NUMBER(10)
+    )
+    """;
+    insertUser = """INSERT  INTO  usertb VALUES ('%s','%s','%s',%d)""";
+    deleteUser = """DELETE  FROM   usertb  WHERE  id = '%s'""";
+    updateUser = """UPDATE  usertb  SET  pwd='%s', name='%s', age=%d  WHERE  																		id='%s'""";
+    selectUser = """SELECT  *  FROM  usertb   WHERE  id='%s'""";
+    selectAllUser = """SELECT  *  FROM  usertb""";
+
+    insertItem = """INSERT  INTO  itemtb VALUES ('%s','%s', %d)""";
+    deleteItem = """DELETE  FROM  itemtb  WHERE  id = '%s'""";
+    updateItem = """UPDATE  itemtb  SET  name='%s', price=%d  WHERE  id='%s'""";
+    selectItem = """SELECT  *  FROM  itemtb   WHERE  id='%s'""";
+    selectAllItem = """SELECT  *  FROM  itemtb""";
+
+class SqliteDb:
+    def __init__(self, dbName):
+        self.__dbName = dbName;
+
+    def getConnect(self):
+        con = sqlite3.connect(self.__dbName);
+        cursor = con.cursor();
+        #print(self.__dbName+ ' Connected ...');
+        return {'con':con, 'cursor':cursor};
+
+    def close(self, cc):
+        if cc['cursor'] != None:
+            cc['cursor'].close();
+        if cc['con'] != None:
+            cc['con'].close();
+
+    def makeTable(self):
+        "Make usertb Table"
+        cc = self.getConnect();
+        cc['cursor'].execute(Sql.makeusertb);
+        cc['cursor'].execute(Sql.makeitemtb);
+        cc['con'].commit();
+        self.close(cc);
+```
+
+	* 만들고자 하는 테이블의 개수가 2개 이상일 때, SQLite문을 부모 클래스로 하고 각 테이블을 다루는 데이터베이스 객체를 자식 클래스로 한다.
+ * SqliteDb에서는 사용할 데이터베이스의 이름을 지정하고 자식 클래스에서 활용할 데이터베이스 접속과 차단에 활용할 함수와 테이블 생성 함수를 만든다.
+   	* 테이블 생성 함수에서는 커서의 실행 명령 수를 만들려는 테이블 수에 맞게 늘린다.
+
+```python
+from sqlitedb import *
+from value import User
+
+class UserDb(SqliteDb):
+
+    def __init__(self, dbName):
+        super().__init__(dbName);
+
+    def insert(self, u):
+        cc = self.getConnect();
+        cc['cursor'].execute(Sql.insertUser % u.sqlmap());
+        cc['con'].commit();
+        self.close(cc);
+
+    def delete(self, id):
+        cc = self.getConnect();
+        cc['cursor'].execute(Sql.deleteUser % (id));
+        cc['con'].commit();
+        self.close(cc);
+
+    def update(self, u):
+        cc = self.getConnect();
+        cc['cursor'].execute(Sql.updateUser % (u.pwd, u.name, u.age, u.id));
+        cc['con'].commit();
+        self.close(cc);
+
+    def select(self):
+        cc = self.getConnect();
+        cc['cursor'].execute(Sql.selectAllUser);
+        result = cc['cursor'].fetchall();
+        all = [];
+        for u in result:
+            # ('','','',20)
+            tu = User(u[0], u[1], u[2], u[3]);
+            all.append(tu);
+        self.close(cc);
+        return all;
+
+    def selectone(self, id):
+        cc = self.getConnect();
+        cc['cursor'].execute(Sql.selectUser % (id));
+        # ('','','',39)
+        obj = cc['cursor'].fetchone();
+        result = User(obj[0], obj[1], obj[2], obj[3]);
+        self.close(cc);
+        return result;
+print('-------------------------------------------------');
+from sqlitedb import *
+from value import Item
+
+class ItemDb(SqliteDb):
+    def insert(self, item):
+        cc = self.getConnect();
+        cc['cursor'].execute(Sql.insertItem % item.sqlmap());
+        cc['con'].commit();
+        self.close(cc);
+
+    def delete(self, id):
+        cc = self.getConnect();
+        cc['cursor'].execute(Sql.deleteItem % (id));
+        cc['con'].commit();
+        self.close(cc);
+
+    def update(self, item):
+        cc = self.getConnect();
+        cc['cursor'].execute(Sql.updateItem % (item.name, item.price, item.id));
+        cc['con'].commit();
+        self.close(cc);
+
+    def select(self):
+        cc = self.getConnect();
+        cc['cursor'].execute(Sql.selectAllItem);
+        result = cc['cursor'].fetchall();
+        all = [];
+        for u in result:
+            # ('','','',20)
+            tu = Item(u[0], u[1], u[2]);
+            all.append(tu);
+        self.close(cc);
+        return all;
+
+    def selectone(self, id):
+        cc = self.getConnect();
+        cc['cursor'].execute(Sql.selectItem % (id));
+        # ('','','',39)
+        obj = cc['cursor'].fetchone();
+        result = Item(obj[0], obj[1], obj[2]);
+        self.close(cc);
+        return result;
+```
+
+ *  자식 클래스에서 부모의 메서드를 호출할 때에는 super 메서드를 이용한다.
+    	*  자식 클래스의 init은 인수로 받은 변수를 초기화하기 위해 부모의 생성자인 'supper().__init__'을 호출한다.
+    	*  부모의 생성자를 호출하는 대신에 직접 변수와 함수를 초기화할 수 있지만 부모 클래스가 변경될 때 자식 클래스도 같이 수정해야 한다. 따라서 상속받은 클래스는 부모의 생성자에게 초기화를 위임하고 직접 추가한 변수와 함수만 초기화하는 것이 정석이다.
+	*  자식 클래스에서 __init__ 메서드를 생략하면 부모 클래스의 __init__을 자동으로 호출하므로 super 메서드를 사용하지 않아도 된다.
+
+
+
+```python
+from itemdb import ItemDb
+from userdb import *;
+
+#1. 사용하고자 하는 데이터베이스 이름을 설정한다,
+from value import Item
+
+sqlitedb = SqliteDb('shopdb.db');
+
+#2. 테이블을 생성 한다, 단, 존재 하지 않으면
+sqlitedb.makeTable();
+
+#3. 사용자 테이블을 사용하기 위해 userdb 객체를 이용하여 'CRUD'를 진행
+udb = UserDb('shopdb.db');
+user = User('id04','pwd04','james',20);
+#udb.insert(user);
+
+userlist = udb.select();
+for u in userlist:
+    print(u);
+```
+
+
 
